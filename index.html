@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>감정 모니터링 · Classroom v7.5</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<style>
+  :root{
+    --bg:#f8fafc;--panel:#ffffff;--text:#0f172a;--sub:#475569;
+    --brand:#4f46e5;--brand-weak:#eef2ff;--accent:#22c55e;--warn:#f97316;--err:#ef4444;
+    --border:#e5e7eb;--chip:#f1f5f9;--muted:#94a3b8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;font-size:15px;line-height:1.45}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .space{height:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 16px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:700;min-height:40px;font-size:15px}
+  .btn.primary{background:var(--brand);color:#fff;border-color:transparent}
+  .btn.ghost{background:#fff;color:#0f172a}
+  .btn.warn{background:var(--warn);color:#fff;border-color:transparent}
+  .btn.danger{background:var(--err);color:#fff;border-color:transparent}
+  .btn:disabled{background:#e5e7eb;cursor:not-allowed;color:#9ca3af}
+  .tabs{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:#fff;cursor:pointer;font-weight:800;white-space:nowrap}
+  .tab.active{background:var(--brand);color:#fff;border-color:transparent}
+  .admin-only,.student-only{display:none!important}
+  body.role-admin .admin-only{display:flex!important}
+  body.role-student .student-only{display:flex!important}
+  .tab.admin-only,.tab.student-only{display:none!important}
+  body.role-admin .tab.admin-only{display:inline-flex!important}
+  body.role-student .tab.student-only{display:inline-flex!important}
+  input,select{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;min-height:42px;background:#fff}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;position:sticky;top:0;background:transparent;z-index:5}
+  .brand{display:flex;align-items:center;gap:12px}
+  .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;border-radius:999px;padding:6px 10px;font-weight:700}
+  .scroller{display:flex;gap:12px;overflow-x:auto;padding:6px 2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .scroller::-webkit-scrollbar{display:none}
+  .stu{flex:0 0 160px;background:#fff;border:2px solid var(--border);border-radius:16px;padding:12px;text-align:center;cursor:pointer;transition:.2s ease}
+  .stu:hover{transform:translateY(-1px)}
+  .stu.selected{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.25)}
+  .stu.completed{background:rgba(34,197,94,.08);border-color:var(--accent)}
+  .avatar{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#e5e7eb;border:2px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,.06);font-size:40px;line-height:60px;text-align:center;background-size:cover;background-position:center}
+  .emoBtn{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff;cursor:pointer}
+  .emoBtn.active{border-color:var(--brand);background:var(--brand-weak)}
+  .context{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+  .chip{padding:9px 12px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-size:13px;cursor:pointer;text-align:center;user-select:none}
+  .chip.selected{background:var(--brand);color:#fff;border-color:transparent}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th,td{border:1px solid #e2e8f0;padding:8px;text-align:center;font-size:14px}
+  th{background:#f8fafc}
+  .hide{display:none!important}
+  .chart-container{position:relative;height:420px;width:100%;margin-top:10px}
+  .muted{color:var(--muted)}
+  .loader{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:10px;font-weight:bold;color:var(--brand)}
+  .loader.show{display:flex}
+  .loader-spinner{width:48px;height:48px;border:5px solid #f3f3f3;border-top:5px solid var(--brand);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:120}
+  .modal.show{display:flex}
+  .modal .box{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:18px;border:1px solid var(--border);box-shadow:0 24px 48px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto}
+  .modal .box h3{margin:0 0 8px}
+  .emoji-picker{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:10px 0}
+  .emoji-choice{font-size:32px;text-align:center;padding:10px;border-radius:12px;cursor:pointer;border:2px solid transparent}
+  .emoji-choice.selected{border-color:var(--brand);background:var(--brand-weak)}
+  .tip{background:#fff;border:1px dashed var(--border);border-radius:12px;padding:10px;color:var(--sub)}
+  @media(max-width:640px){.stu{flex:0 0 140px}.emoji-picker{grid-template-columns:repeat(4,1fr)}}
+  @media print{.no-print{display:none!important}body{background:#fff}.card{border:0;box-shadow:none}#reportBox{padding:0}@page{size:A4;margin:12mm}}
+</style>
+</head>
+<body>
+<!-- 로더 -->
+<div id="loader" class="loader" aria-live="polite"><div class="loader-spinner" role="progressbar" aria-label="처리 중"></div><div id="loader-msg"></div></div>
+
+<div class="wrap">
+  <!-- 상단바 -->
+  <div class="topbar card no-print" aria-label="상단 도구 막대">
+    <div class="brand">
+      <div style="font-size:30px">📊</div>
+      <div>
+        <div style="font-weight:900;font-size:20px">감정 모니터링 · Classroom</div>
+        <div class="muted" style="font-size:12px">v7.5 · UI Polished</div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="manualSync" class="btn" title="새로고침">🔄 새로고침</button>
+      <button id="openSheet" class="btn admin-only" title="시트 보기">📄 시트</button>
+      <button id="gear" class="btn admin-only" title="연동 설정">⚙️ 설정</button>
+    </div>
+  </div>
+
+  <!-- 로그인 -->
+  <section id="login" class="card" aria-label="로그인 섹션">
+    <h2 style="margin-top:0">🔐 로그인</h2>
+    <div class="row" role="form" aria-label="로그인 폼">
+      <label style="flex:1">
+        <span class="muted">아이디</span>
+        <select id="userSelect" aria-label="아이디 선택"><option value="admin" selected>admin</option></select>
+      </label>
+      <label style="flex:1">
+        <span class="muted">비밀번호</span>
+        <input id="password" type="password" placeholder="비밀번호" aria-label="비밀번호"/>
+      </label>
+      <div style="display:flex;align-items:flex-end">
+        <button id="btnLogin" class="btn primary">로그인</button>
+      </div>
+    </div>
+    <div class="space"></div>
+    <div class="row muted">연결 상태: <span id="linkStatus" class="badge">미설정</span></div>
+  </section>
+
+  <!-- 앱 본문 -->
+  <section id="app" class="card hide" aria-label="앱 본문">
+    <div class="row no-print" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div id="who" class="badge">-</div>
+      <button id="btnLogout" class="btn">로그아웃</button>
+    </div>
+
+    <!-- 탭 -->
+    <div class="tabs no-print" id="tabs" role="tablist" aria-label="기능 탭">
+      <button class="tab active" data-tab="am" role="tab" aria-selected="true">🏫 등교</button>
+      <button class="tab" data-tab="pm" role="tab" aria-selected="false">🏡 하교</button>
+      <button class="tab student-only" data-tab="graph" role="tab" aria-selected="false">📊 나의 그래프</button>
+      <button class="tab admin-only" data-tab="data" role="tab" aria-selected="false">📋 데이터 관리</button>
+      <button class="tab admin-only" data-tab="graph" role="tab" aria-selected="false">📊 보고서</button>
+      <button class="tab admin-only" data-tab="list" role="tab" aria-selected="false">👥 학생목록</button>
+      <button class="tab admin-only" data-tab="new" role="tab" aria-selected="false">➕ 학생등록</button>
+      <button class="tab admin-only" data-tab="users" role="tab" aria-selected="false">🔑 사용자 관리</button>
+    </div>
+
+    <!-- AM -->
+    <div id="tab-am" role="tabpanel">
+      <div class="row" style="justify-content:center;gap:8px">
+        <button class="btn" id="amPrev" title="이전 날짜">◀</button>
+        <button class="badge" id="amDateBtn" title="날짜 선택"><span id="amDate"></span></button>
+        <input id="amDatePicker" class="hide" type="date" aria-label="등교 날짜 선택"/>
+        <button class="btn" id="amNext" title="다음 날짜">▶</button>
+      </div>
+      <div class="space"></div>
+      <h3 class="admin-only" style="display:block;margin:0">학생 선택</h3>
+      <div id="amScroller" class="scroller admin-only" style="display:flex;"></div>
+      <div id="amForm" aria-label="등교 감정 입력">
+        <h3 id="amWho" style="text-align:center;margin-top:14px"></h3>
+        <div id="amEmotions" class="col"></div>
+        <div id="amCtxWrap" class="hide">
+          <div style="text-align:center;margin:12px 0 8px" class="muted">맥락 선택(복수 가능)</div>
+          <div id="amCtx" class="context"></div>
+        </div>
+        <div class="row" style="margin-top:14px;justify-content:center">
+          <button class="btn primary" id="amSave" style="padding:12px 32px">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PM -->
+    <div id="tab-pm" class="hide" role="tabpanel">
+      <div class="row" style="justify-content:center;gap:8px">
+        <button class="btn" id="pmPrev" title="이전 날짜">◀</button>
+        <button class="badge" id="pmDateBtn" title="날짜 선택"><span id="pmDate"></span></button>
+        <input id="pmDatePicker" class="hide" type="date" aria-label="하교 날짜 선택"/>
+        <button class="btn" id="pmNext" title="다음 날짜">▶</button>
+      </div>
+      <div class="space"></div>
+      <h3 class="admin-only" style="display:block;margin:0">학생 선택</h3>
+      <div id="pmScroller" class="scroller admin-only" style="display:flex;"></div>
+      <div id="pmForm" aria-label="하교 감정 입력">
+        <h3 id="pmWho" style="text-align:center;margin-top:14px"></h3>
+        <div id="pmEmotions" class="col"></div>
+        <div id="pmCtxWrap" class="hide">
+          <div style="text-align:center;margin:12px 0 8px" class="muted">맥락 선택(복수 가능)</div>
+          <div id="pmCtx" class="context"></div>
+        </div>
+        <div class="row" style="margin-top:14px;justify-content:center">
+          <button class="btn primary" id="pmSave" style="padding:12px 32px">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 데이터 관리 -->
+    <div id="tab-data" class="hide admin-only" role="tabpanel">
+      <div class="row">
+        <select id="dataStudentSelect" aria-label="학생 필터"></select>
+        <select id="dataSlotSelect" aria-label="구분 필터">
+          <option value="">전체</option>
+          <option value="morning">등교</option>
+          <option value="afternoon">하교</option>
+        </select>
+        <button id="btnClear" class="btn ghost">필터 초기화</button>
+      </div>
+      <table aria-label="데이터 표">
+        <thead><tr><th>날짜</th><th>학생</th><th>구분</th><th>점수</th><th>맥락</th><th>관리</th></tr></thead>
+        <tbody id="dataBody"></tbody>
+      </table>
+    </div>
+
+    <!-- 그래프/보고서 -->
+    <div id="tab-graph" class="hide" role="tabpanel">
+      <div class="row admin-only"><select id="graphStudent" aria-label="그래프 학생 선택"></select></div>
+      <div class="row">
+        <label style="flex:1"><span class="muted">시작</span><input type="date" id="fromDate"></label>
+        <label style="flex:1"><span class="muted">종료</span><input type="date" id="toDate"></label>
+        <button class="btn" id="btnGraph">그래프 생성</button>
+        <button class="btn admin-only" id="btnPrint">🖨️ 인쇄</button>
+      </div>
+      <h3 id="graphTitle" style="text-align:center; margin-top:12px; min-height: 24px;"></h3>
+      <div class="chart-container"><canvas id="chart" aria-label="감정 추이 그래프"></canvas></div>
+      <div id="reportBox" class="card admin-only" style="margin-top:16px"></div>
+    </div>
+
+    <!-- 학생 목록 -->
+    <div id="tab-list" class="hide admin-only" role="tabpanel"><h3>학생 목록</h3><div id="stuList"></div></div>
+
+    <!-- 학생 등록 -->
+    <div id="tab-new" class="hide admin-only" role="tabpanel">
+      <h3>학생 등록</h3>
+      <div class="tip">사진이 없으면 이모지를 선택하세요.</div>
+      <div class="space"></div>
+      <div class="row">
+        <label style="flex:1"><span class="muted">이름</span><input id="newName" placeholder="학생 이름"></label>
+        <div id="newAvatar" class="avatar" aria-label="아바타 미리보기">👤</div>
+      </div>
+      <div class="emoji-picker" id="newEmojiPicker"></div>
+      <label for="photo" class="btn" style="width:100%;text-align:center">📷 사진 업로드</label>
+      <input id="photo" type="file" accept="image/*" class="hide"><div class="space"></div>
+
+      <div class="row">
+        <label style="flex:1"><span class="muted">로그인 아이디</span><input id="newUsername" placeholder="예: 1-홍길동"/></label>
+        <label style="flex:1"><span class="muted">초기 비밀번호</span><input id="newPassword" placeholder="임시 비밀번호"/></label>
+      </div>
+
+      <label>학급</label><div id="chipsClass" class="context"></div>
+      <label>성별</label><div id="chipsSex" class="context"></div>
+      <label>진단</label><div id="chipsDx" class="context"></div>
+      <label>의사소통</label><div id="chipsComm" class="context"></div>
+      <label>감각 프로필</label><div id="chipsSensory" class="context"></div>
+      <label>선호 강화제</label><div id="chipsReinf" class="context"></div>
+      <label>주요 유발상황</label><div id="chipsTrigger" class="context"></div>
+      <label>의료/약물</label><div id="chipsMeds" class="context"></div>
+      <div class="row" style="margin-top:8px"><input id="newParent" type="tel" placeholder="보호자 연락처"/></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn primary" id="addStu">등록</button></div>
+    </div>
+
+    <!-- 사용자 관리 -->
+    <div id="tab-users" class="hide admin-only" role="tabpanel">
+      <h3>사용자 관리</h3>
+      <table><thead><tr><th>아이디</th><th>역할</th><th>새 비밀번호</th><th>저장</th></tr></thead><tbody id="userBody"></tbody></table>
+    </div>
+  </section>
+</div>
+
+<!-- 설정 모달 -->
+<div id="modalSettings" class="modal" role="dialog" aria-modal="true" aria-label="연동 설정">
+  <div class="box">
+    <h3>연동 설정</h3>
+    <p class="muted">배포된 웹앱 URL을 붙여넣고 저장하세요.</p>
+    <input id="syncUrlInput" placeholder="https://script.google.com/macros/s/...">
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button id="saveUrl" class="btn primary">저장</button>
+      <button class="btn" onclick="closeModal('#modalSettings')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 안내 모달 -->
+<div id="modalDone" class="modal" role="dialog" aria-modal="true" aria-label="알림">
+  <div class="box"><h3>알림</h3><div id="doneMsg"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button id="doneOk" class="btn primary">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 학생 수정 모달 -->
+<div id="modalEdit" class="modal" role="dialog" aria-modal="true" aria-label="학생 정보 수정">
+  <div class="box">
+    <h3>학생 정보 수정</h3>
+    <div class="row"><label style="flex:1"><span class="muted">이름</span><input id="editName" placeholder="이름"></label><div id="editAvatar" class="avatar">👤</div></div>
+    <div class="emoji-picker" id="editEmojiPicker"></div>
+    <label for="editPhoto" class="btn" style="width:100%;text-align:center">📷 사진 업로드</label>
+    <input id="editPhoto" type="file" accept="image/*" class="hide"><div class="space"></div>
+    <label>학급</label><div id="editClass" class="context"></div>
+    <label>성별</label><div id="editSex" class="context"></div>
+    <label>진단</label><div id="editDx" class="context"></div>
+    <label>의사소통</label><div id="editComm" class="context"></div>
+    <label>감각 프로필</label><div id="editSensory" class="context"></div>
+    <label>선호 강화제</label><div id="editReinf" class="context"></div>
+    <label>주요 유발상황</label><div id="editTrigger" class="context"></div>
+    <label>의료/약물</label><div id="editMeds" class="context"></div>
+    <div class="row" style="margin-top:8px"><input id="editParent" type="tel" placeholder="보호자 연락처"/></div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button class="btn primary" id="editSave">저장</button>
+      <button class="btn" onclick="closeModal('#modalEdit')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 기록 수정 모달 -->
+<div id="modalEditEmotion" class="modal" role="dialog" aria-modal="true" aria-label="기록 수정">
+  <div class="box">
+    <h3>기록 수정</h3>
+    <p id="editEmotionInfo" class="muted"></p>
+    <label>감정 점수 (0-5)</label><input id="editEmotionScore" type="number" min="0" max="5" />
+    <label style="margin-top:8px">맥락 (쉼표 구분)</label><input id="editEmotionContext" type="text" placeholder="예: 수면부족, 또래갈등"/>
+    <div class="row" style="justify-content:flex-end;margin-top:10px">
+      <button id="editEmotionSave" class="btn primary">저장</button>
+      <button class="btn" onclick="closeModal('#modalEditEmotion')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // ===== Constants & State =====
+  const KEY_URL="sync_url_classroom_v7";
+  let SYNC_URL=localStorage.getItem(KEY_URL)||"";
+  let session={role:null,user:null};
+  let students=[],emotionData={};
+  let editTargetId=null, editEmotionTarget=null;
+  let chartInstance=null;
+  let amDate=new Date(), pmDate=new Date();
+
+  // ===== Dictionaries =====
+  const PROFILE_EMOJIS=['🐯','🐰','🐼','🦊','🐨','🐵','🦄','🦖','🐳','🐙','🐝','🦉'];
+  const EMO={5:{e:"😊",n:"매우 긍정"},4:{e:"🙂",n:"긍정"},3:{e:"😐",n:"보통"},2:{e:"😕",n:"불편"},1:{e:"😟",n:"어려움"},0:{e:"😫",n:"위기"}};
+  const CTX=["😴 수면부족","💊 건강저하","🏠 가정이슈","🔄 활동전환","🧒 또래갈등","👀 관심요구","🎁 강화제요구","🚪 과제회피","🌀 감각추구","🔊 소음민감","🍽️ 배고픔","🤕 통증/불편","📅 일정변경","🚌 등하교피로","🌤️ 날씨영향"];
+  const OPS={
+    classes:["A","B","C","D","E","F","G"],
+    sex:["남","여"],
+    dx:["지적장애","자폐스펙트럼","ADHD","학습장애","정서·행동장애","기타"],
+    comm:["구어","PECS","AAC","제스처","제한적 언어","기타"],
+    sensory:["청각 과민","시각 과민","촉각 과민","압박 선호","움직임 추구","기타"],
+    reinf:["스티커","음식","활동","전자기기","사회적 칭찬","기타"],
+    trigger:["과제 전환","소음","일정 변경","또래 갈등","요구 거부","기타"],
+    meds:["없음","항정신병제","항불안제","항경련제","기타"]
+  };
+
+  // ===== Utils =====
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const fmt=d=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().split("T")[0];
+  const dK=d=>d.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric"});
+  let loaderTimer=null;
+  function showLoader(msg){clearTimeout(loaderTimer);$("#loader-msg").textContent=msg||"처리 중...";$("#loader").classList.add("show");}
+  function hideLoader(){loaderTimer=setTimeout(()=>$("#loader").classList.remove("show"),120);}
+  function openModal(id){$(id).classList.add("show");}
+  function closeModal(id){$(id).classList.remove("show");}
+  function alertBox(msg){$("#doneMsg").textContent=msg||"완료되었습니다.";openModal("#modalDone");}
+
+  // ===== API Layer =====
+  async function api(action,params={}){
+    if(!SYNC_URL)throw new Error("웹앱 URL 미설정");
+    const u=new URL(SYNC_URL);
+    u.searchParams.set('action',action);
+    for(const k in params){const v=params[k];if(v!==undefined && v!==null && v!=="")u.searchParams.set(k,v);}
+    const r=await fetch(u,{cache:"no-store"});
+    const j=await r.json().catch(()=>({ok:false,error:"JSON 파싱 오류"}));
+    if(!r.ok || j.error)throw new Error(j?.error||`서버 오류 ${r.status}`);
+    return j;
+  }
+  async function postApi(body){
+    if(!SYNC_URL)throw new Error("웹앱 URL 미설정");
+    const r=await fetch(SYNC_URL,{method:"POST",body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({ok:false,error:"JSON 파싱 오류"}));
+    if(!r.ok || j.error)throw new Error(j?.error||`서버 오류 ${r.status}`);
+    return j;
+  }
+  function setSyncUrl(url){
+    SYNC_URL=url.trim();
+    localStorage.setItem(KEY_URL,SYNC_URL);
+    $("#linkStatus").textContent=SYNC_URL?"설정됨":"미설정";
+    if(SYNC_URL) initLoginScreen();
+  }
+
+  // ===== UI Builders =====
+  function chips(el, list, single=false){
+    const c=$(el); if(!c)return;
+    c.innerHTML = list.map(v=>`<div class="chip" data-v="${v}">${v}</div>`).join("");
+    c.onclick = e => { const t=e.target.closest(".chip"); if(!t)return;
+      if(single){ c.querySelectorAll(".chip").forEach(x=>x.classList.remove("selected")); t.classList.add("selected"); }
+      else t.classList.toggle("selected");
+    };
+    return c;
+  }
+  const getChips = el => $$(el+" .chip.selected").map(x=>x.dataset.v);
+  function setChips(el, selected=[], list=[], single=false){
+    const c=$(el); if(!c)return;
+    c.innerHTML = list.map(v=>`<div class="chip ${selected.includes(v)?'selected':''}" data-v="${v}">${v}</div>`).join("");
+    c.onclick = e => { const t=e.target.closest(".chip"); if(!t)return;
+      if(single){ c.querySelectorAll(".chip").forEach(x=>x.classList.remove("selected")); t.classList.add("selected"); }
+      else t.classList.toggle("selected");
+    };
+  }
+  function emojiPicker(containerId, avatarId){
+    const p=$("#"+containerId), a=$("#"+avatarId); if(!p||!a)return;
+    p.innerHTML = PROFILE_EMOJIS.map(em=>`<div class="emoji-choice" data-emoji="${em}">${em}</div>`).join("");
+    p.onclick = e => { const t=e.target.closest(".emoji-choice"); if(!t)return;
+      p.querySelectorAll(".emoji-choice").forEach(x=>x.classList.remove("selected"));
+      t.classList.add("selected"); a.textContent=t.dataset.emoji; a.style.backgroundImage=''; a.dataset.selected=t.dataset.emoji;
+    };
+  }
+
+  // ===== Renderers =====
+  function renderStudents(scrollerSel){
+    const sc=$(scrollerSel);
+    const list = session.role==="admin" ? students : [session.user];
+    sc.innerHTML = list.map(s=>{
+      const hasImg = (s.photo||'').startsWith('data:image');
+      return `<div class="stu" data-id="${s.id}" title="${s.name}">
+        <div class="avatar" style="${hasImg?`background-image:url(${s.photo})`:''}">${hasImg?'':(s.photo||'👤')}</div>
+        <div style="font-weight:800;margin-top:6px">${s.name}</div>
+      </div>`;
+    }).join("") || `<div class="muted">학생 없음</div>`;
+    sc.onclick = e => {
+      const card=e.target.closest(".stu"); if(!card)return;
+      sc.querySelectorAll(".stu").forEach(x=>x.classList.remove("selected"));
+      card.classList.add("selected");
+      const s = students.find(x=>String(x.id)===String(card.dataset.id));
+      const p=scrollerSel.includes("am")?"am":"pm";
+      $("#"+p+"Form").classList.remove("hide");
+      $("#"+p+"Who").textContent = `${s?.name||''} · 감정 입력`;
+      sc.dataset.sel = card.dataset.id;
+    };
+  }
+  function renderEmo(prefix, brief=false){
+    const box=$("#"+prefix+"Emotions");
+    box.innerHTML = Object.keys(EMO).sort((a,b)=>b-a).map(k=>{
+      const v=EMO[k];
+      return `<div class="emoBtn" data-score="${k}" title="${v.n}">
+        <div style="font-size:28px">${v.e}</div>
+        <div><div style="font-weight:800">${k}점 · ${v.n}</div>${brief?'':`<div class="muted" style="font-size:12px">선택하면 맥락을 고를 수 있어요</div>`}</div>
+      </div>`;
+    }).join("");
+    box.onclick=e=>{
+      const b=e.target.closest(".emoBtn"); if(!b)return;
+      box.querySelectorAll(".emoBtn").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active"); box.dataset.score=b.dataset.score;
+      $("#"+prefix+"CtxWrap").classList.remove("hide");
+    };
+  }
+  function renderCtx(prefix){
+    const el=$("#"+prefix+"Ctx");
+    el.innerHTML = CTX.map(t=>`<div class="chip" data-k="${t}">${t}</div>`).join("");
+    el.onclick=e=>{const c=e.target.closest(".chip"); if(!c)return; c.classList.toggle("selected");};
+  }
+
+  // ===== Status / Completion =====
+  async function updateStudentCardStatus(prefix, date){
+    if(session.role!=='admin') return false;
+    try{
+      const dateStr=fmt(date);
+      const day=(await api('get_emotions',{from:dateStr,to:dateStr})).emotion[dateStr]||{};
+      const scroller=$("#"+prefix+"Scroller");
+      const cards = scroller.querySelectorAll(".stu");
+      let all=true;
+      cards.forEach(card=>{
+        const sid=card.dataset.id;
+        const slot=prefix==='am'?'morning':'afternoon';
+        if(day[sid]?.[slot]) card.classList.add("completed");
+        else{ card.classList.remove("completed"); all=false; }
+      });
+      return all;
+    }catch(e){console.warn("상태 조회 실패:",e.message);return false;}
+  }
+
+  // ===== Data Fetch =====
+  async function fetchStudents(){
+    if(!SYNC_URL){
+      students=[
+        {id:"1",name:"샘플A",photo:"👤",classes:["A"],sex:"남",dx:["지적장애"],comm:["구어"]},
+        {id:"2",name:"샘플B",photo:"👤",classes:["A"],sex:"여",dx:["자폐스펙트럼"],comm:["PECS"]},
+        {id:"3",name:"샘플C",photo:"👤",classes:["B"],sex:"남",dx:["지적장애","ADHD"],comm:["제스처"]},
+      ];
+      renderStudents("#amScroller"); renderStudents("#pmScroller"); return;
+    }
+    students = (await api('get_students')).students||[];
+    if(session.role==='admin'){ renderStudents("#amScroller"); renderStudents("#pmScroller"); }
+  }
+  async function fetchEmotionsAll(){
+    if(!SYNC_URL){ emotionData={}; return; }
+    emotionData = (await api('get_emotions')).emotion||{};
+  }
+
+  // ===== Data Manager / Graph =====
+  function renderDataFilters(){
+    const s=$('#dataStudentSelect');
+    s.innerHTML = `<option value="">학생 전체</option>` + (students||[]).map(st=>`<option value="${st.name}">${st.name}</option>`).join('');
+  }
+  function renderDataTable(name="",slot=""){
+    const b=$("#dataBody"); b.innerHTML="";
+    const dates=Object.keys(emotionData).sort((a,b)=>b.localeCompare(a));
+    dates.forEach(k=>{
+      const day=emotionData[k];
+      Object.keys(day).forEach(sid=>{
+        const rec=day[sid]; const nm=rec.name||""; if(name && nm!==name) return;
+        ['morning','afternoon'].forEach(sl=>{
+          if(slot && sl!==slot) return;
+          const cur=rec[sl]; if(!cur) return;
+          const tr=document.createElement("tr");
+          tr.innerHTML = `<td>${k}</td><td>${nm}</td><td>${sl==="morning"?"등교":"하교"}</td><td>${cur.score}</td><td>${(cur.context||[]).join(", ")}</td><td><div class="row" style="justify-content:center"><button class="btn" data-edit="true">수정</button><button class="btn danger" data-del="true">삭제</button></div></td>`;
+          tr.dataset.date=k; tr.dataset.sid=sid; tr.dataset.slot=sl; tr.dataset.score=cur.score; tr.dataset.context=(cur.context||[]).join(',');
+          b.appendChild(tr);
+        });
+      });
+    });
+  }
+  function getRangeSeries(sid,from,to,emo){
+    const labels=[],am=[],pm=[];
+    const cur=new Date(from), end=new Date(to);
+    while(cur<=end){
+      const k=fmt(cur); const r=emo?.[k]?.[sid];
+      labels.push(k.slice(5)); am.push(r?.morning?.score??null); pm.push(r?.afternoon?.score??null);
+      cur.setDate(cur.getDate()+1);
+    }
+    return {labels,am,pm};
+  }
+  function drawChart(labels,am,pm){
+    const ctx=$("#chart").getContext('2d');
+    if(chartInstance) chartInstance.destroy();
+    Chart.register(ChartDataLabels);
+    chartInstance=new Chart(ctx,{
+      type:'line',
+      data:{labels,datasets:[
+        {label:'등교',data:am,borderColor:'#ef4444',backgroundColor:'#ef4444',radius:5,tension:0.1},
+        {label:'하교',data:pm,borderColor:'#2563eb',backgroundColor:'#2563eb',radius:5,tension:0.1}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:5,ticks:{stepSize:1}}},plugins:{datalabels:{align:'top',color:'#111827',font:{weight:'bold'},formatter:v=>v}}}
+    });
+  }
+  function generateReport(stu,from,to,emo){
+    const box=$("#reportBox");
+    const recs=[];
+    const cur=new Date(from),end=new Date(to);
+    while(cur<=end){
+      const k=fmt(cur); const r=emo[k]?.[stu.id];
+      if(r?.morning) recs.push({score:r.morning.score,ctx:r.morning.context||[]});
+      if(r?.afternoon) recs.push({score:r.afternoon.score,ctx:r.afternoon.context||[]});
+      cur.setDate(cur.getDate()+1);
+    }
+    if(recs.length===0){ box.innerHTML='<div class="muted">선택 기간에 데이터가 없습니다.</div>'; return; }
+    const low=recs.filter(r=>r.score<=1);
+    const ctxCount={}; low.forEach(r=>r.ctx.forEach(c=>ctxCount[c]=(ctxCount[c]||0)+1));
+    const topCtx=Object.entries(ctxCount).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const key=topCtx[0]?.[0]||"특정 맥락";
+
+    box.innerHTML = `
+      <h3 style="margin:4px 0 8px">전문가 소견</h3>
+      <ul>
+        <li><b>행동분석:</b> ${key} 상황에서 낮은 정서 점수가 빈번합니다. 기능 가설(주의획득/회피/유형체감각/자동강화)을 ABC로 점검하세요.</li>
+        <li><b>감각:</b> 소음·감각 관련 단서가 있으면 환경 조절(소리 차단, 예고, 대체감각) 우선.</li>
+        <li><b>인지-행동:</b> 감정 인식/표현 스케일 훈련과 기능적 의사소통(FCT) 병행.</li>
+      </ul>
+      <h3 style="margin:12px 0 6px">중재 계획</h3>
+      <ul>
+        <li><b>배경사건:</b> 수면·식사 루틴, 일정 예고</li>
+        <li><b>선행사건:</b> 전환 예고, 과제 난이도 조절, 선택권</li>
+        <li><b>대체기술:</b> 도움이 필요해요/쉬어요 등의 FCT</li>
+        <li><b>강화:</b> 긍정 참여 즉시 강화(토큰/시각표)</li>
+        <li><b>위기:</b> 안전·안정화 → 복귀 절차</li>
+      </ul>`;
+  }
+
+  // ===== Save Emotion =====
+  async function saveEmotion(prefix, btn){
+    btn.disabled=true; showLoader("저장 중...");
+    try{
+      let sid = (session.role==='student') ? session.user.id : $("#"+prefix+"Scroller").dataset.sel;
+      const box=$("#"+prefix+"Emotions");
+      const score=box.dataset.score;
+      if(!sid||score===undefined) throw new Error("학생과 점수를 선택하세요.");
+      const date = prefix==='am'? amDate : pmDate;
+      const ctxSel = $$("#"+prefix+"Ctx .chip.selected").map(x=>x.dataset.k);
+      if(SYNC_URL){
+        await postApi({action:"add_emotion",date:fmt(date),student_id:sid,slot:(prefix==="am"?"morning":"afternoon"),score:Number(score),context:ctxSel});
+      } else {
+        alertBox("연결이 설정되지 않아 실제 저장은 되지 않습니다. ⚙️에서 URL을 설정하세요.");
+      }
+      alertBox("저장되었습니다.");
+      // reset
+      box.querySelector(".active")?.classList.remove("active"); box.dataset.score="";
+      $("#"+prefix+"CtxWrap").classList.add("hide"); $$("#"+prefix+"Ctx .chip").forEach(x=>x.classList.remove("selected"));
+      if(session.role==='admin'){
+        const scroller=$("#"+prefix+"Scroller"); scroller.querySelector(".selected")?.classList.remove("selected"); $("#"+prefix+"Form").classList.add("hide");
+        const all = await updateStudentCardStatus(prefix, date);
+        if(all){
+          alertBox("모든 학생 입력 완료. 다음 날로 이동합니다.");
+          date.setDate(date.getDate()+1); await setDates();
+        }
+      }
+    }catch(e){ alertBox("저장 실패: "+e.message); }
+    finally{ btn.disabled=false; hideLoader(); }
+  }
+
+  // ===== Tabs & Dates =====
+  async function setDates(){
+    $("#amDate").textContent=dK(amDate); $("#pmDate").textContent=dK(pmDate);
+    $("#amDatePicker").value=fmt(amDate); $("#pmDatePicker").value=fmt(pmDate);
+    if(session.role==='admin'){ showLoader("입력 현황 확인 중..."); try{ await Promise.all([updateStudentCardStatus('am',amDate),updateStudentCardStatus('pm',pmDate)]);} catch(_){} finally{ hideLoader(); } }
+  }
+  async function switchTab(id){
+    $$(".tab").forEach(t=>{t.classList.toggle("active", t.dataset.tab===id); t.setAttribute("aria-selected", t.dataset.tab===id?'true':'false');});
+    $$("[id^='tab-']").forEach(p=>p.classList.add("hide"));
+    $("#tab-"+id).classList.remove("hide");
+    showLoader("로딩...");
+    try{
+      if(session.role==='admin'){
+        await fetchStudents();
+        if(id==="list") renderStudentList();
+        else if(id==="data"){ await fetchEmotionsAll(); renderDataFilters(); renderDataTable(); }
+        else if(id==="graph"){ renderGraphStudentSelect(); }
+        else if(id==="users"){ await renderUserManagement(); }
+      }
+    }catch(e){ console.warn("탭 로딩 에러:", e.message); }
+    finally{ hideLoader(); }
+  }
+
+  // ===== Lists =====
+  function renderStudentList(){
+    const l=students;
+    $("#stuList").innerHTML = l.map(s=>`
+      <div class="row" style="justify-content:space-between;border-bottom:1px solid #e5e7eb;padding:8px 0">
+        <div class="row">
+          <div class="avatar" style="${(s.photo||'').startsWith('data:image')?`background-image:url(${s.photo})`:''}">${(s.photo||'').startsWith('data:image')?'':s.photo||'👤'}</div>
+          <div>
+            <div><b>${s.name}</b> <span class="muted">(${(s.classes||[]).join(", ")})</span></div>
+            <div class="muted" style="font-size:12px">${(s.dx||[]).join('/')} · ${(s.comm||[]).join('/')}</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" data-edit="${s.id}">수정</button>
+          <button class="btn danger" data-del="${s.id}">삭제</button>
+        </div>
+      </div>
+    `).join("") || `<div class="muted">학생 없음</div>`;
+  }
+  function renderGraphStudentSelect(){
+    const s=$("#graphStudent");
+    s.innerHTML = `<option value="">학생 선택</option>` + students.map(st=>`<option value="${st.id}">${st.name}</option>`).join("");
+  }
+
+  // ===== User Management =====
+  async function renderUserManagement(){
+    if(!SYNC_URL){ $('#userBody').innerHTML='<tr><td colspan="4">⚠️ 연동 후 사용자 목록을 불러옵니다.</td></tr>'; return; }
+    const {users}=await api('get_users');
+    $('#userBody').innerHTML = users.map(u=>`
+      <tr>
+        <td>${u.username}</td><td>${u.role}</td>
+        <td><input type="password" class="pw-input" data-username="${u.username}" placeholder="새 비밀번호"></td>
+        <td><button class="btn primary save-pw-btn" data-username="${u.username}">저장</button></td>
+      </tr>`).join('');
+  }
+
+  // ===== Media Utils =====
+  async function fileToDataURL(file){ return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); }); }
+
+  // ===== Login Screen =====
+  async function initLoginScreen(){
+    const sel=$("#userSelect");
+    sel.innerHTML = '<option value="admin" selected>admin</option>';
+    if(!SYNC_URL) return;
+    showLoader("사용자 목록 로딩...");
+    try{
+      const {users}=await api('get_users');
+      const opts = users.map(u=>u.username).filter(u=>u && u!=='admin').map(u=>`<option value="${u}">${u}</option>`).join('');
+      sel.insertAdjacentHTML('beforeend', opts);
+    }catch(e){ console.warn("사용자 목록 실패:", e.message); }
+    finally{ hideLoader(); }
+  }
+
+  // ===== Setup UI for Roles =====
+  function setupAdmin(){
+    document.body.className='role-admin';
+    $("#who").textContent='관리자';
+    renderEmo("am"); renderEmo("pm");
+    renderCtx("am"); renderCtx("pm");
+    chips("#chipsClass",OPS.classes); chips("#chipsSex",OPS.sex,true);
+    chips("#chipsDx",OPS.dx); chips("#chipsComm",OPS.comm);
+    chips("#chipsSensory",OPS.sensory); chips("#chipsReinf",OPS.reinf);
+    chips("#chipsTrigger",OPS.trigger); chips("#chipsMeds",OPS.meds);
+    emojiPicker('newEmojiPicker','newAvatar'); emojiPicker('editEmojiPicker','editAvatar');
+    fetchStudents(); setDates();
+  }
+  function setupStudent(){
+    document.body.className='role-student';
+    $("#who").textContent=session.user.name;
+    $("#amForm").classList.remove("hide"); $("#pmForm").classList.add("hide");
+    renderEmo("am",true); renderEmo("pm",true);
+    renderCtx("am"); renderCtx("pm");
+    setDates();
+  }
+
+  // ===== Event Bindings =====
+  $("#gear").onclick=()=>openModal("#modalSettings");
+  $("#doneOk").onclick=()=>closeModal("#modalDone");
+  $("#saveUrl").onclick=()=>{ setSyncUrl($("#syncUrlInput").value); alertBox("URL 저장됨"); closeModal("#modalSettings"); };
+  $$(".tab").forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+
+  // 로그인: admin 즉시(비번 무시), 그 외 서버 경유
+  $("#btnLogin").onclick=async()=>{
+    const username=$("#userSelect").value||"admin";
+    const password=$("#password").value;
+    const btn=$("#btnLogin"); btn.disabled=true; showLoader("로그인...");
+    try{
+      if(username==="admin"){
+        session = { ok:true, role:'admin', user:{id:'admin',name:'관리자'} };
+        $("#login").classList.add("hide"); $("#app").classList.remove("hide"); setupAdmin(); hideLoader(); btn.disabled=false; return;
+      }
+      const r=await postApi({action:'login',username,password});
+      if(!r.ok) throw new Error(r.error);
+      session=r;
+      $("#login").classList.add("hide"); $("#app").classList.remove("hide");
+      if(session.role==='admin') setupAdmin(); else setupStudent();
+    }catch(e){ alertBox("로그인 실패: "+e.message); }
+    finally{ btn.disabled=false; hideLoader(); }
+  };
+  $("#password").onkeydown=e=>{ if(e.key==="Enter") $("#btnLogin").click(); };
+  $("#btnLogout").onclick=()=>location.reload();
+
+  // 날짜/탐색
+  $("#amPrev").onclick=async()=>{ amDate.setDate(amDate.getDate()-1); await setDates(); };
+  $("#amNext").onclick=async()=>{ amDate.setDate(amDate.getDate()+1); await setDates(); };
+  $("#pmPrev").onclick=async()=>{ pmDate.setDate(pmDate.getDate()-1); await setDates(); };
+  $("#pmNext").onclick=async()=>{ pmDate.setDate(pmDate.getDate()+1); await setDates(); };
+  $("#amDateBtn").onclick=()=>$("#amDatePicker").showPicker?.();
+  $("#pmDateBtn").onclick=()=>$("#pmDatePicker").showPicker?.();
+  $("#amDatePicker").onchange=async e=>{ amDate=new Date(e.target.value); await setDates(); };
+  $("#pmDatePicker").onchange=async e=>{ pmDate=new Date(e.target.value); await setDates(); };
+
+  // 저장
+  $("#amSave").onclick=e=>saveEmotion('am',e.target);
+  $("#pmSave").onclick=e=>saveEmotion('pm',e.target);
+
+  // 학생 등록
+  $("#addStu").onclick=async e=>{
+    const btn=e.target; btn.disabled=true; showLoader("등록...");
+    try{
+      const name=$("#newName").value.trim(); if(!name) throw new Error("이름을 입력하세요.");
+      const username=$("#newUsername").value.trim(); if(!username) throw new Error("아이디를 입력하세요.");
+      const password=$("#newPassword").value.trim(); if(!password) throw new Error("비밀번호를 입력하세요.");
+      let photo=$("#newAvatar").dataset.selected||'👤';
+      const f=$("#photo").files[0]; if(f) photo=await fileToDataURL(f);
+      const s={id:0,name:name,photo:photo,classes:getChips("#chipsClass"),sex:getChips("#chipsSex")[0]||"",dx:getChips("#chipsDx"),comm:getChips("#chipsComm"),sensory:getChips("#chipsSensory"),reinf:getChips("#chipsReinf"),trigger:getChips("#chipsTrigger"),meds:getChips("#chipsMeds"),parent:$("#newParent").value.trim(),username,password};
+      if(SYNC_URL){ await postApi({action:"add_student",student:s}); alertBox("등록되었습니다."); await fetchStudents(); await initLoginScreen(); }
+      else { alertBox("연결 저장 후 등록이 반영됩니다."); }
+      // reset
+      $$("#tab-new .chip.selected").forEach(c=>c.classList.remove("selected"));
+      ["newName","newUsername","newPassword","newParent"].forEach(id=>$("#"+id).value="");
+      $("#photo").value="";
+      const av=$("#newAvatar"); av.textContent="👤"; av.style.backgroundImage=''; av.dataset.selected="";
+    }catch(err){ alertBox("등록 실패: "+err.message); }
+    finally{ btn.disabled=false; hideLoader(); }
+  };
+  $("#photo").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const dataUrl=await fileToDataURL(f); const av=$("#newAvatar"); av.style.backgroundImage=`url(${dataUrl})`; av.textContent=''; av.dataset.selected=dataUrl; $$("#newEmojiPicker .emoji-choice").forEach(c=>c.classList.remove('selected')); };
+
+  // 학생 리스트 수정/삭제
+  $("#stuList").onclick=async e=>{
+    const edit=e.target.closest("[data-edit]"), del=e.target.closest("[data-del]");
+    if(edit){
+      editTargetId=edit.dataset.edit;
+      const s=students.find(x=>String(x.id)===String(editTargetId)); if(!s) return;
+      $("#editName").value=s.name||"";
+      const av=$("#editAvatar"); if((s.photo||'').startsWith('data:image')){ av.style.backgroundImage=`url(${s.photo})`; av.textContent=''; } else { av.style.backgroundImage=''; av.textContent=s.photo||'👤'; }
+      av.dataset.selected=s.photo; $("#editPhoto").value="";
+      setChips("#editClass",s.classes,OPS.classes); setChips("#editSex",[s.sex],OPS.sex,true); setChips("#editDx",s.dx,OPS.dx);
+      setChips("#editComm",s.comm,OPS.comm); setChips("#editSensory",s.sensory,OPS.sensory); setChips("#editReinf",s.reinf,OPS.reinf);
+      setChips("#editTrigger",s.trigger,OPS.trigger); setChips("#editMeds",s.meds,OPS.meds);
+      $("#editParent").value=s.parent||""; openModal("#modalEdit");
+    }
+    if(del){
+      if(!confirm("학생과 해당 학생의 로그인 계정이 모두 삭제됩니다. 계속할까요?")) return;
+      showLoader("삭제...");
+      try{
+        if(!SYNC_URL) throw new Error("연결 미설정");
+        await postApi({action:"delete_student",id:del.dataset.del});
+        alertBox("삭제되었습니다."); await fetchStudents(); await initLoginScreen(); await switchTab("list");
+      }catch(err){ alertBox("삭제 실패: "+err.message); }
+      finally{ hideLoader(); }
+    }
+  };
+  $("#editSave").onclick=async e=>{
+    const btn=e.target; btn.disabled=true; showLoader("수정...");
+    try{
+      const s=students.find(x=>String(x.id)===String(editTargetId)); if(!s) throw new Error("학생 정보 없음");
+      s.name=$("#editName").value.trim();
+      s.photo=$("#editAvatar").dataset.selected||s.photo;
+      const pf=$("#editPhoto").files[0]; if(pf) s.photo=await fileToDataURL(pf);
+      s.classes=getChips("#editClass"); s.sex=getChips("#editSex")[0]||""; s.dx=getChips("#editDx"); s.comm=getChips("#editComm");
+      s.sensory=getChips("#editSensory"); s.reinf=getChips("#editReinf"); s.trigger=getChips("#editTrigger"); s.meds=getChips("#editMeds");
+      s.parent=$("#editParent").value.trim();
+      if(SYNC_URL){ await postApi({action:"update_student",student:s}); alertBox("수정되었습니다."); await fetchStudents(); await switchTab("list"); }
+      else { alertBox("연결 후 수정이 반영됩니다."); }
+      closeModal("#modalEdit");
+    }catch(err){ alertBox("수정 실패: "+err.message); }
+    finally{ btn.disabled=false; hideLoader(); }
+  };
+  $("#editPhoto").onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const dataUrl=await fileToDataURL(f); const av=$("#editAvatar"); av.style.backgroundImage=`url(${dataUrl})`; av.textContent=''; av.dataset.selected=dataUrl; $$("#editEmojiPicker .emoji-choice").forEach(c=>c.classList.remove('selected')); };
+
+  // 기록 수정/삭제
+  $("#dataBody").onclick=async e=>{
+    const del=e.target.closest("[data-del]"), edit=e.target.closest("[data-edit]");
+    if(del){
+      if(!confirm("이 기록을 삭제할까요?")) return;
+      const tr=del.closest("tr"); showLoader("삭제...");
+      try{
+        if(!SYNC_URL) throw new Error("연결 미설정");
+        await postApi({action:"delete_emotion",date:tr.dataset.date,student_id:tr.dataset.sid,slot:tr.dataset.slot});
+        alertBox("삭제되었습니다."); tr.remove();
+      }catch(err){ alertBox("삭제 실패: "+err.message); }
+      finally{ hideLoader(); }
+    }
+    if(edit){
+      const tr=edit.closest("tr");
+      editEmotionTarget={date:tr.dataset.date,sid:tr.dataset.sid,slot:tr.dataset.slot};
+      $("#editEmotionInfo").textContent = `${tr.children[0].textContent} / ${tr.children[1].textContent} / ${tr.children[2].textContent}`;
+      $("#editEmotionScore").value = tr.dataset.score;
+      $("#editEmotionContext").value = tr.dataset.context;
+      openModal("#modalEditEmotion");
+    }
+  };
+  $("#editEmotionSave").onclick=async e=>{
+    const btn=e.target; btn.disabled=true; showLoader("수정...");
+    try{
+      const score=Number($("#editEmotionScore").value);
+      const ctx=$("#editEmotionContext").value.split(',').map(s=>s.trim()).filter(Boolean);
+      if(score<0||score>5) throw new Error("점수는 0~5 범위");
+      if(SYNC_URL){ await postApi({action:'update_emotion',date:editEmotionTarget.date,student_id:editEmotionTarget.sid,slot:editEmotionTarget.slot,score,context:ctx}); alertBox("수정되었습니다."); await fetchEmotionsAll(); renderDataTable(); }
+      else { alertBox("연결 후 수정이 반영됩니다."); }
+      closeModal("#modalEditEmotion");
+    }catch(err){ alertBox("수정 실패: "+err.message); }
+    finally{ btn.disabled=false; hideLoader(); }
+  };
+
+  // 데이터 관리 필터
+  $("#dataStudentSelect").onchange=e=>renderDataTable(e.target.value, $("#dataSlotSelect").value);
+  $("#dataSlotSelect").onchange=e=>renderDataTable($("#dataStudentSelect").value, e.target.value);
+  $("#btnClear").onclick=()=>{ $("#dataStudentSelect").value=""; $("#dataSlotSelect").value=""; renderDataTable(); };
+
+  // 그래프/보고서
+  function defaultDates(){ const past=new Date(); past.setDate(past.getDate()-14); $("#fromDate").value=fmt(past); $("#toDate").value=fmt(new Date()); }
+  defaultDates();
+  $("#btnGraph").onclick=async()=>{
+    const from=$("#fromDate").value, to=$("#toDate").value; if(!from||!to) return alertBox("기간을 선택하세요.");
+    let sid, name;
+    if(session.role==='student'){ sid=session.user.id; name=session.user.name; }
+    else { sid=$("#graphStudent").value; if(!sid) return alertBox("학생을 선택하세요."); name=students.find(s=>String(s.id)===String(sid))?.name; }
+    showLoader("그래프 생성...");
+    try{
+      let emo={emotion:{}}; if(SYNC_URL) emo=await api('get_emotions',{from,to,studentId:sid});
+      const g=getRangeSeries(sid,from,to,emo.emotion);
+      $("#graphTitle").textContent = `${name} · 감정 추이 (${from} ~ ${to})`;
+      drawChart(g.labels,g.am,g.pm);
+      if(session.role==='admin'){ generateReport(students.find(s=>String(s.id)===String(sid))||{id:sid,name},from,to,emo.emotion); }
+    }catch(e){ alertBox("그래프 실패: "+e.message); $("#graphTitle").textContent=''; if(chartInstance){chartInstance.destroy(); chartInstance=null;} }
+    finally{ hideLoader(); }
+  };
+  $("#btnPrint").onclick=()=>window.print();
+
+  // 기타
+  $("#manualSync").onclick=async()=>{ showLoader("동기화..."); try{ await fetchStudents(); if(session.role!=='student') await setDates(); alertBox("동기화 완료"); } catch(e){ alertBox("동기화 실패: "+e.message); } finally{ hideLoader(); } };
+  $("#openSheet").onclick=async()=>{ try{ if(!SYNC_URL) throw new Error("연결 미설정"); const {sheetUrl}=await api('get_sheet_url'); if(sheetUrl) window.open(sheetUrl,'_blank'); } catch(e){ alertBox("시트 열기 실패: "+e.message); } };
+
+  // Init
+  setSyncUrl(SYNC_URL);
+  initLoginScreen();
+});
+</script>
+</body>
+</html>
